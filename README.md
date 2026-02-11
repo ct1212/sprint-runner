@@ -10,12 +10,20 @@ AI-driven sprint automation using Claude CLI. State a goal, generate a PRD and t
 
 ## Setup
 
-Copy the `scripts/` and `sprints/` directories into your project root:
+From your project directory, run:
 
 ```bash
-cp -r sprint-template/scripts ./scripts
-cp -r sprint-template/sprints ./sprints
+bash <(curl -s https://raw.githubusercontent.com/ct1212/sprint-runner/main/setup.sh)
+```
+
+Or clone and copy manually:
+
+```bash
+git clone https://github.com/ct1212/sprint-runner.git /tmp/sprint-runner
+cp -r /tmp/sprint-runner/scripts ./scripts
+cp -r /tmp/sprint-runner/sprints ./sprints
 chmod +x scripts/sprint_*.sh
+rm -rf /tmp/sprint-runner
 ```
 
 ## Quick Start
