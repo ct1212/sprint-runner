@@ -27,22 +27,23 @@ cat > "$DIR/00-goal.md" <<EOG
 
 $GOAL
 
-# Stack
-
-- Node.js / TypeScript (ESM)
-- Vitest for testing
-- ESLint + Prettier for linting/formatting
-
 # Constraints
 
-- Keep scope small.
-- Prefer local installs only.
-- No global installs.
-- No sudo.
+- Keep scope small and focused
+- Prefer local installs only (no global installs, no sudo)
+- Use modern, well-supported tools
+- (Add any specific requirements or limitations here)
 
 # Done when
 
-- List concrete acceptance criteria here.
+- List concrete acceptance criteria here
+- Each criterion should be testable/verifiable
+- Be as specific as possible
+
+# Stack (optional)
+
+_Leave this section empty to let Claude choose the best stack for your goal._
+_Or specify your preferred technologies here if you have strong preferences._
 EOG
 
 # Create placeholder files so the directory structure is complete
@@ -67,5 +68,7 @@ touch "$DIR/03-status.md"
 echo "Created sprint $SPRINT at sprints/$SPRINT/"
 echo ""
 echo "Next steps:"
-echo "  1. Edit sprints/$SPRINT/00-goal.md (refine goal, stack, constraints, acceptance criteria)"
-echo "  2. Run ./scripts/sprint_prd.sh $SPRINT"
+echo "  1. Edit sprints/$SPRINT/00-goal.md (refine goal, constraints, acceptance criteria)"
+echo "     Tip: Leave the Stack section empty to let Claude choose the best tools!"
+echo "  2. Run ./scripts/sprint_prd.sh $SPRINT (generates initial PRD)"
+echo "  3. Run ./scripts/sprint_refine.sh $SPRINT (interactive refinement + task generation)"

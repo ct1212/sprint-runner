@@ -87,12 +87,24 @@ run_one_task() {
     return 2  # signal stop (no more work to do in dry-run)
   fi
 
-  # Build context: task list + package.json
+  # Build context: task list + PRD (contains stack info) + project config
   local TASKS_CONTENT
   TASKS_CONTENT="$(cat "$TASKS_FILE")"
-  local PKG_CONTENT=""
+
+  local PRD_CONTENT=""
+  if [[ -f "$DIR/01-prd.md" ]]; then
+    PRD_CONTENT="$(cat "$DIR/01-prd.md")"
+  fi
+
+  local PROJECT_CONFIG=""
   if [[ -f "$ROOT/package.json" ]]; then
-    PKG_CONTENT="$(cat "$ROOT/package.json")"
+    PROJECT_CONFIG="## package.json\n\n$(cat "$ROOT/package.json")"
+  elif [[ -f "$ROOT/pyproject.toml" ]]; then
+    PROJECT_CONFIG="## pyproject.toml\n\n$(cat "$ROOT/pyproject.toml")"
+  elif [[ -f "$ROOT/Cargo.toml" ]]; then
+    PROJECT_CONFIG="## Cargo.toml\n\n$(cat "$ROOT/Cargo.toml")"
+  elif [[ -f "$ROOT/go.mod" ]]; then
+    PROJECT_CONFIG="## go.mod\n\n$(cat "$ROOT/go.mod")"
   fi
 
   local PROMPT
@@ -108,9 +120,11 @@ $TASK_TEXT
 
 $TASKS_CONTENT
 
-## package.json
+## PRD (includes stack and architecture decisions)
 
-$PKG_CONTENT
+$PRD_CONTENT
+
+$PROJECT_CONFIG
 
 ## Rules
 
@@ -118,24 +132,27 @@ $PKG_CONTENT
 - Make the smallest correct change.
 - Add tests if reasonable for the task.
 - Update docs only if the task requires it.
-- Run \`npm test\` and \`npm run lint\` when done to verify your changes pass.
+- Follow the stack and conventions specified in the PRD.
+- Run appropriate lint/test commands when done to verify your changes pass.
 - Do NOT commit. The calling script handles commits.
-
-Project defaults:
-- Node.js and TypeScript (ESM modules)
-- Vitest for tests
-- ESLint + Prettier for linting
-- No global installs, no sudo
+- No global installs, no sudo.
 ENDPROMPT
 )"
 
   # Let Claude directly edit files using its built-in tools
+  # Allow common package managers and build tools (but not destructive commands)
   echo "Running Claude (model: $MODEL, budget: \$$MAX_BUDGET)..."
   printf "%s" "$PROMPT" | claude -p \
     --model "$MODEL" \
     --dangerously-skip-permissions \
     --max-budget-usd "$MAX_BUDGET" \
-    --allowedTools "Read" "Write" "Edit" "Glob" "Grep" "Bash(npm:*)" "Bash(npx:*)" || {
+    --allowedTools "Read" "Write" "Edit" "Glob" "Grep" \
+    "Bash(npm:*)" "Bash(npx:*)" "Bash(pnpm:*)" "Bash(yarn:*)" "Bash(bun:*)" \
+    "Bash(python:*)" "Bash(python3:*)" "Bash(pip:*)" "Bash(poetry:*)" "Bash(pytest:*)" "Bash(ruff:*)" \
+    "Bash(cargo:*)" "Bash(rustc:*)" \
+    "Bash(go:*)" "Bash(node:*)" "Bash(deno:*)" \
+    "Bash(mkdir:*)" "Bash(chmod:*)" "Bash(cat:*)" "Bash(ls:*)" \
+    || {
       echo "ERROR: Claude exited with non-zero status."
       git checkout .
       return 1
@@ -152,15 +169,34 @@ ENDPROMPT
     return 1
   fi
 
-  # Install deps if node_modules missing
+  # Detect project type and install deps if needed
   if [[ -f "package.json" && ! -d "node_modules" ]]; then
     npm install
+  elif [[ -f "pyproject.toml" && ! -d ".venv" ]]; then
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -e .
+  elif [[ -f "Cargo.toml" ]]; then
+    cargo fetch 2>/dev/null || true
+  elif [[ -f "go.mod" ]]; then
+    go mod download 2>/dev/null || true
   fi
 
-  # Run lint — fail and revert on error
+  # Run lint — fail and revert on error (stack-agnostic)
+  local LINT_CMD=""
   if [[ -f "package.json" ]] && npm run 2>/dev/null | grep -qE '^\s*lint'; then
-    echo "Running lint..."
-    if ! npm run lint; then
+    LINT_CMD="npm run lint"
+  elif [[ -f "pyproject.toml" ]] && grep -q "ruff" pyproject.toml; then
+    LINT_CMD="ruff check ."
+  elif command -v cargo >/dev/null && [[ -f "Cargo.toml" ]]; then
+    LINT_CMD="cargo clippy -- -D warnings"
+  elif command -v golangci-lint >/dev/null && [[ -f "go.mod" ]]; then
+    LINT_CMD="golangci-lint run"
+  fi
+
+  if [[ -n "$LINT_CMD" ]]; then
+    echo "Running lint: $LINT_CMD"
+    if ! eval "$LINT_CMD"; then
       echo "ERROR: Lint failed. Reverting changes."
       git checkout .
       if [[ -n "$UNTRACKED_FILES" ]]; then
@@ -175,10 +211,21 @@ ENDPROMPT
     fi
   fi
 
-  # Run tests — fail and revert on error
+  # Run tests — fail and revert on error (stack-agnostic)
+  local TEST_CMD=""
   if [[ -f "package.json" ]] && npm run 2>/dev/null | grep -qE '^\s*test'; then
-    echo "Running tests..."
-    if ! npm test; then
+    TEST_CMD="npm test"
+  elif [[ -f "pyproject.toml" ]] && grep -q "pytest" pyproject.toml; then
+    TEST_CMD="pytest"
+  elif command -v cargo >/dev/null && [[ -f "Cargo.toml" ]]; then
+    TEST_CMD="cargo test"
+  elif command -v go >/dev/null && [[ -f "go.mod" ]]; then
+    TEST_CMD="go test ./..."
+  fi
+
+  if [[ -n "$TEST_CMD" ]]; then
+    echo "Running tests: $TEST_CMD"
+    if ! eval "$TEST_CMD"; then
       echo "ERROR: Tests failed. Reverting changes."
       git checkout .
       if [[ -n "$UNTRACKED_FILES" ]]; then

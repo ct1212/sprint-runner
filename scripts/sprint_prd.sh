@@ -61,67 +61,65 @@ Here is the goal file for sprint $SPRINT:
 $GOAL_CONTENT
 ---ENDGOAL---
 
-Return output in EXACTLY this structure, with the markers on their own lines:
+Your job:
+1. Analyze the goal and choose the most appropriate, modern, and efficient technology stack
+2. Generate a comprehensive PRD (Product Requirements Document)
 
----PRD---
-<markdown for the PRD>
----TASKS---
-<markdown for the tasks checklist>
+When choosing the stack, consider:
+- Project type (API, CLI, web app, data processing, etc.)
+- Optimal language for the use case (TypeScript for web/API, Python for data/ML, Go for CLI/performance, Rust for systems, etc.)
+- Modern, well-maintained tools with good ecosystems
+- Fast development iteration (good DX, testing tools, etc.)
+- Keep it simple - avoid over-engineering
+- Prefer tools Claude can work with effectively
 
-Rules:
-- Do not add any other text before ---PRD--- or after the tasks.
-- PRD must include: Overview, Scope, Out of scope, Assumptions, Constraints, Architecture, Adapter interfaces, Acceptance criteria, Risks, Open questions.
-- Tasks must be an unchecked checklist. Each task is 5–20 minutes. Include tests early. Include a final docs and walkthrough task.
+Return ONLY the PRD content in markdown format. Do not add markers or extra text.
+
+PRD must include these sections:
+1. **Overview** — Brief summary of what we're building and why
+2. **Recommended Stack** — Technology choices with rationale (or confirm user's choices if specified)
+3. **Scope** — What IS included in this sprint
+4. **Out of Scope** — What is explicitly NOT included
+5. **Assumptions** — What we're assuming to be true
+6. **Constraints** — Technical or business limitations
+7. **Architecture** — High-level system design
+8. **Key Components** — Main parts of the system and their responsibilities
+9. **Data Models** — Important entities and their relationships
+10. **API/Interfaces** — External interfaces (if applicable)
+11. **Acceptance Criteria** — How we know it's done
+12. **Risks & Mitigations** — What could go wrong and how to handle it
+13. **Open Questions** — Things to clarify before or during implementation
+
+If the goal file already specifies a stack, use that. Otherwise, choose the best stack and explain why.
 PROMPT
 )"
 
-echo "Generating PRD and tasks for sprint $SPRINT (model: $MODEL, budget: \$$MAX_BUDGET)..."
+echo "Generating initial PRD for sprint $SPRINT (model: $MODEL, budget: \$$MAX_BUDGET)..."
 
-RAW="$(claude -p \
+PRD_CONTENT="$(claude -p \
   --model "$MODEL" \
   --max-turns 2 \
   --dangerously-skip-permissions \
   --max-budget-usd "$MAX_BUDGET" \
   "$PROMPT")"
 
-# Robust marker parsing: trim leading/trailing whitespace before matching
-PRD_CONTENT="$(printf "%s\n" "$RAW" | awk '
-  { trimmed = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", trimmed) }
-  trimmed == "---PRD---" { capture=1; next }
-  trimmed == "---TASKS---" { capture=0 }
-  capture { print }
-')"
-
-TASKS_CONTENT="$(printf "%s\n" "$RAW" | awk '
-  { trimmed = $0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", trimmed) }
-  trimmed == "---TASKS---" { capture=1; next }
-  capture { print }
-')"
-
 if [[ -z "${PRD_CONTENT//[[:space:]]/}" ]]; then
-  echo "ERROR: PRD content was empty. Claude did not follow the required format."
-  echo "--- Raw output (first 20 lines) ---"
-  printf "%s\n" "$RAW" | head -20
-  exit 1
-fi
-
-if [[ -z "${TASKS_CONTENT//[[:space:]]/}" ]]; then
-  echo "ERROR: Tasks content was empty. Claude did not follow the required format."
-  echo "--- Raw output (first 20 lines) ---"
-  printf "%s\n" "$RAW" | head -20
+  echo "ERROR: PRD content was empty."
   exit 1
 fi
 
 printf "%s\n" "$PRD_CONTENT" > "$PRD_FILE"
-printf "%s\n" "$TASKS_CONTENT" > "$TASKS_FILE"
 
 {
   echo
   echo "[$(date -u +"%Y-%m-%d %H:%M:%S UTC")]"
-  echo "Generated PRD (01-prd.md) and tasks (02-tasks.md) for sprint $SPRINT."
-  echo "Next: run ./scripts/sprint_dev.sh $SPRINT"
+  echo "Generated initial PRD (01-prd.md) for sprint $SPRINT."
+  echo "Next: run ./scripts/sprint_refine.sh $SPRINT to review and refine the PRD interactively"
 } >> "$STATUS_FILE"
 
 echo "OK: wrote $PRD_FILE"
-echo "OK: wrote $TASKS_FILE"
 echo "OK: updated $STATUS_FILE"
+echo ""
+echo "Next steps:"
+echo "  1. Run ./scripts/sprint_refine.sh $SPRINT to interactively review and refine the PRD"
+echo "  2. Claude will walk you through each section and generate tasks when you're ready"
