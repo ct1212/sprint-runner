@@ -29,8 +29,8 @@ rm -rf /tmp/sprint-runner
 ## Quick Start
 
 ```bash
-# 1. Create a new sprint
-./scripts/sprint_new.sh v1 "Build a REST API for user management"
+# 1. Create a new sprint (will prompt for goal)
+./scripts/sprint_new.sh v1
 
 # 2. Edit the goal file — refine acceptance criteria and constraints
 # (Leave stack section empty to let Claude choose the best tools for you!)
@@ -55,8 +55,10 @@ vi sprints/v1/00-goal.md
 ### `sprint_new.sh` — Create a sprint
 
 ```bash
-./scripts/sprint_new.sh <name> "goal description"
+./scripts/sprint_new.sh <name>
 ```
+
+The `<name>` is your sprint identifier (e.g., `v1`, `auth`, `dashboard`). If you don't provide a goal as the second argument, the script will prompt you for it interactively.
 
 Creates `sprints/<name>/` with:
 

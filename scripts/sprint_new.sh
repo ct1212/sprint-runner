@@ -2,10 +2,12 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: scripts/sprint_new.sh <name> \"goal description\""
+  echo "Usage: scripts/sprint_new.sh <name> [\"goal description\"]"
+  echo ""
+  echo "  <name>  Sprint identifier (e.g., v1, v2, auth, dashboard)"
   echo ""
   echo "Examples:"
-  echo "  scripts/sprint_new.sh v1 \"Build a REST API for user management\""
+  echo "  scripts/sprint_new.sh v1"
   echo "  scripts/sprint_new.sh auth \"Add OAuth2 login with Google and GitHub\""
   exit 1
 fi
@@ -18,8 +20,21 @@ DIR="$ROOT/sprints/$SPRINT"
 
 mkdir -p "$DIR"
 
+# Prompt for goal if not provided
 if [[ -z "$GOAL" ]]; then
-  GOAL="Describe the goal here in plain English."
+  echo "=========================================="
+  echo "  Creating Sprint: $SPRINT"
+  echo "=========================================="
+  echo ""
+  echo "What do you want to build?"
+  echo "(Describe your goal in plain English - you can refine it later)"
+  echo ""
+  read -p "Goal: " GOAL
+  echo ""
+
+  if [[ -z "$GOAL" ]]; then
+    GOAL="Describe the goal here in plain English."
+  fi
 fi
 
 cat > "$DIR/00-goal.md" <<EOG
