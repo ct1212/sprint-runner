@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Defaults
-MODEL="sonnet"
+MODEL="haiku"  # Use Haiku for cost efficiency; override with --model sonnet for complex tasks
 MAX_BUDGET="5.00"
 LOOP=false
 DRY_RUN=false

@@ -43,11 +43,14 @@ vi sprints/v1/00-goal.md
 ./scripts/sprint_refine.sh v1
 # Claude will ask about each section, help you fill gaps, then generate tasks
 
-# 5. Run tasks one at a time
+# 5. Run tasks one at a time (uses Haiku by default for cost efficiency)
 ./scripts/sprint_dev.sh v1
 
 # 6. Or run all tasks automatically in a loop
 ./scripts/sprint_dev.sh v1 --loop
+
+# For complex tasks, override to Sonnet
+./scripts/sprint_dev.sh v1 --model sonnet
 ```
 
 ## Scripts
@@ -98,17 +101,19 @@ This is where you collaborate with Claude to ensure the plan is solid before com
 ### `sprint_dev.sh` — Execute tasks
 
 ```bash
-./scripts/sprint_dev.sh <name> [--loop] [--dry-run] [--model sonnet] [--max-budget-usd 5.00]
+./scripts/sprint_dev.sh <name> [--loop] [--dry-run] [--model haiku] [--max-budget-usd 5.00]
 ```
 
 | Flag               | Description                             |
 | ------------------ | --------------------------------------- |
 | `--loop`           | Process all remaining tasks in sequence |
 | `--dry-run`        | Show the next task without executing    |
-| `--model`          | Claude model to use (default: `sonnet`) |
+| `--model`          | Claude model to use (default: `haiku` for cost efficiency) |
 | `--max-budget-usd` | Per-task spending cap (default: `5.00`) |
 
 Each task runs through: Claude edits files → lint → test → commit. If lint or tests fail, changes are reverted and the failure is logged to `03-status.md`.
+
+**Note:** Haiku is the default for cost efficiency. Use `--model sonnet` for complex refactoring or architectural tasks.
 
 ## Sprint Directory Structure
 
@@ -137,6 +142,41 @@ sprints/
 5. **Automated quality gates** — After each task, the script runs appropriate lint and test commands for your stack. Passing tasks are committed; failing tasks are reverted and logged.
 
 6. **Progress tracking** — Tasks are checked off in `02-tasks.md` and timestamped entries are appended to `03-status.md`.
+
+## Model Selection & Cost Optimization
+
+Sprint Runner uses a **mixed model strategy** by default to balance quality and cost:
+
+| Phase | Default Model | Why | Typical Cost |
+|-------|--------------|-----|--------------|
+| PRD Generation | **Sonnet** | Strategic thinking, architecture decisions | $0.10-0.50 |
+| Interactive Refinement | **Sonnet** | Understanding nuance, asking good questions | $0.20-1.00 |
+| Task Execution | **Haiku** | Most tasks are straightforward code changes | $0.05-0.50/task |
+
+### Cost Savings Example (10-task sprint):
+- **All Sonnet:** ~$8-15
+- **Mixed (default):** ~$3-5
+- **Savings: 50-70%**
+
+### When to Override to Sonnet for Tasks:
+
+Use `--model sonnet` for complex tasks like:
+```bash
+# Complex refactoring or architectural changes
+./scripts/sprint_dev.sh v1 --model sonnet
+
+# Or for a specific complex sprint
+./scripts/sprint_dev.sh api-redesign --loop --model sonnet
+```
+
+### When Haiku Works Great:
+- Adding simple functions
+- Writing tests
+- Updating configuration
+- Basic CRUD operations
+- Documentation updates
+
+If a Haiku task fails, you can retry with Sonnet. The quality gates will catch issues either way.
 
 ## Auto Stack Selection
 
@@ -183,6 +223,8 @@ The scripts automatically detect and support Node.js, Python, Rust, and Go proje
 - **Ask questions during refinement** — Claude will help you think through edge cases, clarify requirements, and make better decisions
 - **Review tasks before running dev** — you can still manually edit `02-tasks.md` if needed
 - **Use `--dry-run` first** to see what task would execute next
+- **Trust Haiku for most tasks** — the default model handles 90% of tasks well and saves significant cost
+- **Override to Sonnet when needed** — use `--model sonnet` for complex refactoring or architectural changes
 - **Use `--max-budget-usd`** to cap spending on complex tasks
 - **Name sprints meaningfully** — use `v1`, `v2` or descriptive names like `auth`, `dashboard`
 - **One sprint = one feature area** — keep sprints focused for better results
